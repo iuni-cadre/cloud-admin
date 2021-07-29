@@ -4,24 +4,39 @@ import sys
 import optparse
 import boto3
 
-def start_instances(cassandraVM, ec2):
-   print cassandraVM
-   raise Exception('Not implemented')
 
-def stop_instances(cassandraVM, ec2):
+def start_instances(cassandraVM, elasticsearchVM, ec2):
    print cassandraVM
+   #print elasticsearchVM
+
+   # Start Cassandra instances one at a time
+   for vm in cassandraVM:
+      try:
+         print 'starting vm: {}'.format(vm[0])
+         response = ec2.start_instances(InstanceIds=[vm[0],])
+      except Exception as e:
+         print 'Exception'
+         sys.stderr.write(e)
+
+   print response
+
+def stop_instances(cassandraVM, elasticsearchVM, ec2):
+   print cassandraVM
+   #print elasticsearchVM
    raise Exception('Not implemented')
 
 def process_action(action, options):
    try:
+      credentials = boto3.Session().get_credentials()
+      print credentials
       ec2 = boto3.client('ec2')
    except Exception:
       raise Exception('Failed to get boto EC2 client')
 
    if action == 'start':
-      return start_instances(options.cassandraVM, ec2)
+      return start_instances(options.cassandraVM, options.elasticsearchVM, ec2)
    elif action == 'stop':
-      return stop_instances(options.cassandraVM, ec2)
+      return stop_instances(options.cassandraVM, options.elasticsearchVM, ec2)
    else:
       raise Exception('Invalid action \'{}\''.format(options.action))
    
@@ -32,6 +47,9 @@ def parse_args():
    parser.add_option(
       '--cassandravm', dest='cassandraVM', nargs=2, action='append',
       help='a label for a Cassandra VM and its IP address: label IP')
+   parser.add_option(
+      '--elasticsearchvm', dest='elasticsearchVM', nargs=2, action='append',
+      help='a label for a ElasticSearch VM and its IP address: label IP')
    options, args = parser.parse_args()
 
    return parser, options, args
@@ -51,6 +69,11 @@ def main():
 
    if not hasattr(options, 'cassandraVM'):
       sys.stderr.write('ERROR: Number of Cassandra VMs must be 1 or more\n')
+      parser.print_help()
+      return 1
+
+   if not hasattr(options, 'elasticsearchVM'):
+      sys.stderr.write('ERROR: Number of ElasticSearch VMs must be 1 or more\n')
       parser.print_help()
       return 1
 
