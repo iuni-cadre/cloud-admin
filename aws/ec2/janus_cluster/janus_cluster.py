@@ -74,9 +74,10 @@ def runnint(state):
 
    return ret
 
-def start_instances(options, ec2):
-   # Start Cassandra instances one at a time
-   for vm in options.cassandraVM:
+def start_sequential(vmList, tag, options, ec2):
+   #print('start_sequential vmList')
+   #print(vmList)
+   for vm in vmList:
 
       # Sometimes the call to start_instances will throw an
       # exception for no discernable reason.  Retry until it
@@ -139,18 +140,18 @@ def start_instances(options, ec2):
             numStartAttempts += 1
 
       if numStartAttempts > options.vmNumActionAttempts:
-         raise Exception('EC2 API failed to initiate start for one or more Cassandra VMs')
+         raise Exception('EC2 API failed to initiate start for one or more {} VMs'.format(tag))
+ 
 
-   # Start the ElasticSearch VMs and Janus VM
-   vmList = build_identifier_list([], options.elasticsearchVM)
-
-   if hasattr(options, 'janusVM'):
-      vmList = build_identifier_list(vmList, [options.janusVM])
-
+def start_concurrent(vmList, tag, options, ec2): 
+   vmList = build_identifier_list([], vmList)
+   #print('start_concurrent vmList')
+   #print(vmList)
    numStartAttempts = 1
    startAttempt = True
    while startAttempt and (numStartAttempts <= options.vmNumActionAttempts):
       try:
+         #print('numStartAttempts: {}'.format(numStartAttempts))
          response = ec2.start_instances(InstanceIds=vmList)
          httpCode = get_http_status(response)
 
@@ -160,7 +161,6 @@ def start_instances(options, ec2):
          # Sleep for the estimated time needed for the VMs to
          # reach the 'running' state.
          time.sleep(options.vmStartWaitTime)
-
          startState = get_start_state(response)
 
          if pending_or_running(startState):
@@ -173,6 +173,7 @@ def start_instances(options, ec2):
 
                while statusRetry and (numStatusRetries <= options.vmNumStatusRetries):
                   try:
+                     #print('numStatusRetries: {}'.format(numStatusRetries))
                      time.sleep(options.vmStatusWaitTime)
                      # Get the status of the started/starting VM
                      response = ec2.start_instances(InstanceIds=vmList)
@@ -186,7 +187,7 @@ def start_instances(options, ec2):
                      numStatusRetries += 1
 
                if not running(startState):
-                  raise ActionException('One or more ElasticSearch or Janus VMs failed to start')
+                  raise ActionException('One or more {} VMs failed to start'.format(tag))
             else:
                numStartAttempts += 1
          else:
@@ -198,14 +199,27 @@ def start_instances(options, ec2):
          numStartAttempts += 1
       
    if numStartAttempts > options.vmNumActionAttempts:
-      raise Exception('API failed to initiate start for ElasticSearch and Janus VMs')
+      raise Exception('API failed to initiate start for one or more {} VMs'.format(tag))
+
+
+def start_instances(options, ec2):
+   start_sequential(options.cassandraVM, 'Cassandra', options, ec2)
+
+   #Start the ElasticSearch VMs
+   #print('Calling start_concurrent on elastic search')
+   start_concurrent(options.elasticsearchVM, 'ElasticSearch', options, ec2)
+
+   if hasattr(options, 'janusVM'):
+      #print('calling start_sequential on Janus')
+      time.sleep(options.vmStatusWaitTime)
+      start_sequential(options.janusVM, 'Janus', options, ec2)
 
 
 def stop_instances(options, ec2):
    # Start the ElasticSearch VMs and Janus VM
    vmList = []
    if hasattr(options, 'janusVM'):
-      vmList = build_identifier_list(vmList, [options.janusVM])
+      vmList = build_identifier_list(vmList, options.janusVM)
 
    vmList = build_identifier_list(vmList, options.elasticsearchVM)
    vmList = build_identifier_list(vmList, options.cassandraVM)
@@ -245,14 +259,11 @@ def process_action(action, options):
    except Exception:
       raise Exception('Failed to get boto EC2 client')
 
-   code = 2
-
    if action == 'start':
       try:
          start_instances(options, ec2)
       except Exception as e:
          try:
-            pass
             stop_instances(options, ec2)
          except:
             pass
@@ -276,8 +287,8 @@ def parse_args():
       '--elasticsearchvm', dest='elasticsearchVM', nargs=2, action='append',
       help='an identifier for a ElasticSearch VM and its IP address: identifier IP.  Option can be used multiple times to append VMs to a list.')
    parser.add_option(
-      '--janusvm', dest='janusVM', nargs=2, action='store',
-      help='an identifier for a Janus server front end and its IP address: identifier IP.  Option should be given no more than once.')
+      '--janusvm', dest='janusVM', nargs=2, action='append',
+      help='an identifier for a Janus server front end and its IP address: identifier IP.')
    parser.add_option(
       '--vm-num-action-attempts', dest='vmNumActionAttempts', type='int',
       default=3, action='store',
