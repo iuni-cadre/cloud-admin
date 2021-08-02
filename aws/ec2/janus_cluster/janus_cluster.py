@@ -64,7 +64,7 @@ def pending_or_stopping(state):
    return ret
 
 
-def runnint(state):
+def running(state):
    ret = True
 
    for s in state:
@@ -74,6 +74,8 @@ def runnint(state):
 
    return ret
 
+# Start the VMs in vmList one at a time with a wait time of
+# vmStartWaitTime in between each startup.
 def start_sequential(vmList, tag, options, ec2):
    #print('start_sequential vmList')
    #print(vmList)
@@ -101,7 +103,6 @@ def start_sequential(vmList, tag, options, ec2):
             # Sleep for the estimated time needed for the VM to
             # reach the 'running' state.
             time.sleep(options.vmStartWaitTime)
-
             startState = get_start_state(response)
 
             if startState[0] in ('pending', 'running'):
@@ -143,6 +144,7 @@ def start_sequential(vmList, tag, options, ec2):
          raise Exception('EC2 API failed to initiate start for one or more {} VMs'.format(tag))
  
 
+# Start the VMs in vmList concurrently.
 def start_concurrent(vmList, tag, options, ec2): 
    vmList = build_identifier_list([], vmList)
    #print('start_concurrent vmList')
@@ -214,7 +216,8 @@ def start_instances(options, ec2):
       time.sleep(options.vmStatusWaitTime)
       start_sequential(options.janusVM, 'Janus', options, ec2)
 
-
+# Stop all instances and wait for the VM states to enter
+# stopping, stopped, or pending.
 def stop_instances(options, ec2):
    # Start the ElasticSearch VMs and Janus VM
    vmList = []
@@ -339,9 +342,10 @@ def main():
       parser.print_usage()
       return 1
 
+   code = 2
+
    try:
-      code = 2
-      code = process_action(action, options)
+      process_action(action, options)
    except Exception as e:
       sys.stderr.write('ERROR: {}'.format(e) + '\n')
 

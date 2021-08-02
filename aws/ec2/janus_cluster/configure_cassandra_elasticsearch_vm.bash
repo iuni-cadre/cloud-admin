@@ -2,8 +2,8 @@
 
 #
 # Description: This script configures Janus clusters Cassandra and ElasticSearch
-# VM during startup of the VMs from a shutdown state.  The primary function of the
-# script is to mount needed file systems and copy data sets if needed.
+# VM during startup of the VMs from a shutdown state.  The primary function of
+# the script is to mount needed file systems and copy data sets if needed.
 #
 # Error codes returned: 0 - success
 #                       1 - error parsing arguments
