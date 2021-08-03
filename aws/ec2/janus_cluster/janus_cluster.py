@@ -98,6 +98,7 @@ def start_sequential(vmList, tag, options, ec2):
             httpCode = get_http_status(response)
 
             if (httpCode != 200):
+               #print('response HTTP code: {}'.format(httpCode))
                continue
 
             # Sleep for the estimated time needed for the VM to
@@ -138,6 +139,7 @@ def start_sequential(vmList, tag, options, ec2):
          except ActionException as e:
             raise e
          except Exception as e:
+            sys.stderr.write('WARN: start_instances exception : {}'.format(e))
             numStartAttempts += 1
 
       if numStartAttempts > options.vmNumActionAttempts:
@@ -198,6 +200,7 @@ def start_concurrent(vmList, tag, options, ec2):
       except ActionException as e:
          raise e
       except Exception as e:
+         sys.stderr.write('WARN: start_instances exception : {}'.format(e))
          numStartAttempts += 1
       
    if numStartAttempts > options.vmNumActionAttempts:
