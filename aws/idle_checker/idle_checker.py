@@ -6,14 +6,17 @@ import sys
 import psycopg2 as psycopg2
 from subprocess import Popen, PIPE
 from datetime import datetime, timedelta
+import time
 
 abspath = os.path.abspath(os.path.dirname(__file__))
-cadre = os.path.dirname(abspath)
-util = cadre + '/util'
-conf = cadre + '/conf'
-janus = cadre + '/aws/ec2/janus_cluster'
+aws_dir = os.path.dirname(abspath)
+cloud_admin_dir = os.path.dirname(aws_dir)
+util = cloud_admin_dir + '/util'
+conf = cloud_admin_dir + '/conf'
+janus = cloud_admin_dir + '/aws/ec2/janus_cluster'
 script_path = janus + '/janus_cluster.py'
-sys.path.append(cadre)
+print(cloud_admin_dir)
+sys.path.append(cloud_admin_dir)
 
 import util.config_reader
 from util.db_util import cadre_meta_connection_pool
@@ -39,7 +42,7 @@ command = stop_uspto_command
 def stop_uspto_cluster():
     last_logged_time_statement = "SELECT user_id, last_update FROM user_token ORDER BY last_update DESC NULLS LAST LIMIT 1"
     # replace with listener_status table once it is ready
-    check_listener_running_statement = "SELECT last_cluster,status,last_reported_time FROM listener_status WHERE status='RUNNING'"
+    check_listener_running_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE status='RUNNING'"
 
     meta_connection = cadre_meta_connection_pool.getconn()
     meta_db_cursor = meta_connection.cursor()
@@ -50,22 +53,29 @@ def stop_uspto_cluster():
             last_active_user_id = token_last_update_info[0]
             last_active_user_time = token_last_update_info[1]
             print(last_active_user_time)
-            d1 = datetime.strptime(last_active_user_time, '%Y-%m-%d %H:%M:%S.%f')
+            print("88888888888888")
+            print(type(last_active_user_time))
             d2 = datetime.now()
-            time_difference = d2 - d1
+            print(d2)
+            time_difference = time.mktime(d2.timetuple()) - time.mktime(last_active_user_time.timetuple())
+            print(d2)
+            print(time_difference)
 
             meta_db_cursor.execute(check_listener_running_statement)
+            print(meta_db_cursor.rowcount)
             if meta_db_cursor.rowcount == 0:
+                print("no running listeners")
                 # there is no running jobs
-                check_listener_idle_statement = "SELECT last_cluster,status,last_reported_time FROM listener_status  ORDER BY last_reported_time DESC NULLS LAST LIMIT 1"
+                check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status  ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
                 meta_db_cursor.execute(check_listener_idle_statement)
                 if meta_db_cursor.rowcount > 0:
+                    print("check for last updated time of listener")
                     idle_listener_info = meta_db_cursor.fetchone()
                     listener_last_updated_time = idle_listener_info[2]
                     dataset = idle_listener_info[0]
-                    listner_last_update_time = datetime.strptime(listener_last_updated_time, '%Y-%m-%d %H:%M:%S.%f')
-                    listner_last_update_time_difference = d2 - listner_last_update_time
-                    if listner_last_update_time_difference.min > 10 and time_difference.min > 10:
+                    listner_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
+                    print(listner_last_update_time_difference / 60.0)
+                    if listner_last_update_time_difference > 10 and time_difference > 10:
                         # can shut down the cluster
                         print("System is idle")
                         if dataset == "USPTO":
@@ -97,7 +107,7 @@ def stop_uspto_cluster():
                             rc = p.returncode
                             print(rc)
     except (Exception, psycopg2.Error) as error:
-        logger.exception(error)
+        print(error)
         logger.error('Error while connecting to PostgreSQL. Error is ' + str(error))
     finally:
         # Closing database connection.
