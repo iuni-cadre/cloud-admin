@@ -31,11 +31,16 @@ logger.info('Completed configuring logger()!')
 logger = logging.getLogger('cadre_idle_checker')
 
 stop_uspto_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 --janusvm  i-0e6e57cfc9f606275 10.0.1.165 stop"
+stop_mag_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 --janusvm  i-0e6e57cfc9f606275 10.0.1.165 stop"
+stop_wos_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 --janusvm  i-0e6e57cfc9f606275 10.0.1.165 stop"
+command = stop_uspto_command
+
 
 def stop_uspto_cluster():
-    last_logged_time_statement = "select user_id, last_update from user_token ORDER BY last_update DESC NULLS LAST LIMIT 1"
+    last_logged_time_statement = "SELECT user_id, last_update FROM user_token ORDER BY last_update DESC NULLS LAST LIMIT 1"
     # replace with listener_status table once it is ready
-    check_active_jobs_statement = "select job_id,job_status from user_job ORDER BY modified_on DESC NULLS LAST LIMIT 1"
+    check_listener_running_statement = "SELECT last_cluster,status,last_reported_time FROM listener_status WHERE status='RUNNING'"
+
     meta_connection = cadre_meta_connection_pool.getconn()
     meta_db_cursor = meta_connection.cursor()
     try:
@@ -49,31 +54,48 @@ def stop_uspto_cluster():
             d2 = datetime.now()
             time_difference = d2 - d1
 
-            meta_db_cursor.execute(check_active_jobs_statement)
-            if meta_db_cursor.rowcount > 0:
-                active_jobs_info = meta_db_cursor.fetchone()
-                status = active_jobs_info[1]
-                if status != 'RUNNING' and time_difference.min > 10:
-                    # can shut down the cluster
-                    print("System is idle")
-                    #spawn script
-                    # subprocess.call(["python3", script_path,
-                    #                  "--cassandravm",
-                    #                  "i-041dce87232dde587 10.0.1.34",
-                    #                  "--cassandravm",
-                    #                  "i-0695e499d3ee4777a 10.0.1.61",
-                    #                  "--cassandravm",
-                    #                  "i-02c3c26faea6ca53b 10.0.1.46",
-                    #                  "--elasticsearchvm",
-                    #                  "i-0221d597c482eecee 10.0.1.121",
-                    #                  "--janusvm",
-                    #                  "i-0e6e57cfc9f606275 10.0.1.165",
-                    #                  "stop"])
+            meta_db_cursor.execute(check_listener_running_statement)
+            if meta_db_cursor.rowcount == 0:
+                # there is no running jobs
+                check_listener_idle_statement = "SELECT last_cluster,status,last_reported_time FROM listener_status  ORDER BY last_reported_time DESC NULLS LAST LIMIT 1"
+                meta_db_cursor.execute(check_listener_idle_statement)
+                if meta_db_cursor.rowcount > 0:
+                    idle_listener_info = meta_db_cursor.fetchone()
+                    listener_last_updated_time = idle_listener_info[2]
+                    dataset = idle_listener_info[0]
+                    listner_last_update_time = datetime.strptime(listener_last_updated_time, '%Y-%m-%d %H:%M:%S.%f')
+                    listner_last_update_time_difference = d2 - listner_last_update_time
+                    if listner_last_update_time_difference.min > 10 and time_difference.min > 10:
+                        # can shut down the cluster
+                        print("System is idle")
+                        if dataset == "USPTO":
+                            command_list = [stop_uspto_command]
+                        elif dataset == "WOS":
+                            command_list = [stop_wos_command]
+                        elif dataset == "MAG":
+                            command_list = [stop_mag_command]
+                        else:
+                            command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
 
-                    p = Popen([script_path] + stop_uspto_command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
-                    output, err = p.communicate(b"input data that is passed to subprocess' stdin")
-                    rc = p.returncode
-                    print(rc)
+                        #spawn script
+                        # subprocess.call(["python3", script_path,
+                        #                  "--cassandravm",
+                        #                  "i-041dce87232dde587 10.0.1.34",
+                        #                  "--cassandravm",
+                        #                  "i-0695e499d3ee4777a 10.0.1.61",
+                        #                  "--cassandravm",
+                        #                  "i-02c3c26faea6ca53b 10.0.1.46",
+                        #                  "--elasticsearchvm",
+                        #                  "i-0221d597c482eecee 10.0.1.121",
+                        #                  "--janusvm",
+                        #                  "i-0e6e57cfc9f606275 10.0.1.165",
+                        #                  "stop"])
+
+                        for command in command_list:
+                            p = Popen([script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                            output, err = p.communicate(b"input data that is passed to subprocess' stdin")
+                            rc = p.returncode
+                            print(rc)
     except (Exception, psycopg2.Error) as error:
         logger.exception(error)
         logger.error('Error while connecting to PostgreSQL. Error is ' + str(error))
