@@ -79,3 +79,7 @@ def poll_queue():
                         ReceiptHandle=receipt_handle
                     )
                     logger.info('Received and deleted message: %s' % message)
+
+
+if __name__ == '__main__':
+    poll_queue()
