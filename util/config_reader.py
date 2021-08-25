@@ -123,3 +123,13 @@ def get_cadre_db_pwd():
         logger.exception(e)
         logger.error('Unable to find cadre.config file. Make sure you have cadre.config inside conf directory !')
         raise Exception('Unable to find cadre.config file !')
+
+def get_python_venv_path():
+    try:
+        config = get_cadre_config()
+        python_venv_bin = config['GENERAL']['python-venv-bin']
+        return python_venv_bin
+    except Exception as e:
+        traceback.print_tb(e.__traceback__)
+        logger.error('Unable to find cadre.config file. Make sure you have cadre.config inside conf directory !')
+        raise Exception('Unable to find cadre.config file !')
