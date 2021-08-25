@@ -70,18 +70,19 @@ def poll_queue():
                 if dataset == 'US Patent and Trademark Office patent':
                     command = start_uspto_command
                 elif dataset == 'Microsoft Academic Graph':
-                    command =  start_mag_command
+                    command = start_mag_command
                 else:
                     command = start_wos_command
                 # check whether cluster already running
                 # start the cluster
                 try:
+                    logger.info(command)
                     p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
-                    print(rc)
-                    print(err)
-                    print(output)
+                    logger.info(rc)
+                    logger.info(err)
+                    logger.info(output)
                 except (Exception) as error:
                     logger.error(error)
                 finally:
