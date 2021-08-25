@@ -214,7 +214,7 @@ def start_instances(options, ec2):
    #print('Calling start_concurrent on elastic search')
    start_concurrent(options.elasticsearchVM, 'ElasticSearch', options, ec2)
 
-   if hasattr(options, 'janusVM'):
+   if options.janusVM != None:
       #print('calling start_sequential on Janus')
       time.sleep(options.vmStatusWaitTime)
       start_sequential(options.janusVM, 'Janus', options, ec2)
@@ -224,7 +224,8 @@ def start_instances(options, ec2):
 def stop_instances(options, ec2):
    # Start the ElasticSearch VMs and Janus VM
    vmList = []
-   if hasattr(options, 'janusVM'):
+
+   if options.janusVM != None:
       vmList = build_identifier_list(vmList, options.janusVM)
 
    vmList = build_identifier_list(vmList, options.elasticsearchVM)
@@ -274,11 +275,13 @@ def process_action(action, options):
          except:
             pass
          sys.stderr.write('ERROR: Failed to start a VM -- ' + str(e) + '\n') 
+         raise
    elif action == 'stop':
       try:
          stop_instances(options, ec2)
       except Exception as e:
          sys.stderr.write('ERROR: Failed to stop a VM -- ' + str(e) + '\n') 
+         raise
    else:
       raise Exception('Invalid action \'{}\''.format(options.action))
    
@@ -328,12 +331,12 @@ def main():
       parser.print_usage()
       return 1
 
-   if not hasattr(options, 'cassandraVM'):
+   if options.cassandraVM == None:
       sys.stderr.write('ERROR: Number of Cassandra VMs must be 1 or more\n')
       parser.print_help()
       return 1
 
-   if not hasattr(options, 'elasticsearchVM'):
+   if options.elasticsearchVM == None:
       sys.stderr.write('ERROR: Number of ElasticSearch VMs must be 1 or more\n')
       parser.print_help()
       return 1
@@ -349,6 +352,7 @@ def main():
 
    try:
       process_action(action, options)
+      code = 0
    except Exception as e:
       sys.stderr.write('ERROR: {}'.format(e) + '\n')
 
