@@ -3,21 +3,20 @@ import logging.config
 import os
 import sys
 
-import psycopg2 as psycopg2
 from subprocess import Popen, PIPE
-from datetime import datetime, timedelta
 import boto3
 
 abspath = os.path.abspath(os.path.dirname(__file__))
-cadre = os.path.dirname(abspath)
-util = cadre + '/util'
-conf = cadre + '/conf'
-janus = cadre + '/aws/ec2/janus_cluster'
+aws_dir = os.path.dirname(abspath)
+cloud_admin_dir = os.path.dirname(aws_dir)
+util = cloud_admin_dir + '/util'
+conf = cloud_admin_dir + '/conf'
+janus = cloud_admin_dir + '/aws/ec2/janus_cluster'
 script_path = janus + '/janus_cluster.py'
-sys.path.append(cadre)
+print(cloud_admin_dir)
+sys.path.append(cloud_admin_dir)
 
 import util.config_reader
-from util.db_util import cadre_meta_connection_pool
 
 log_conf = conf + '/start-cluster-conf.json'
 with open(log_conf, 'r') as logging_configuration_file:
@@ -38,7 +37,9 @@ user_logged_in_sqs_client = boto3.client('sqs',
                                region_name=util.config_reader.get_aws_region())
 
 queue_url = util.config_reader.get_queue_url()
-start_uspto_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 --janusvm  i-0e6e57cfc9f606275 10.0.1.165 start"
+start_uspto_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 start"
+python_venv_path = util.config_reader.get_python_venv_path()
+
 
 def poll_queue():
     while True:
@@ -66,7 +67,7 @@ def poll_queue():
                 # check whether cluster already running
                 # start the cluster
                 try:
-                    p = Popen([script_path] + start_uspto_command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                    p = Popen([python_venv_path, script_path] + start_uspto_command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
                     print(rc)
