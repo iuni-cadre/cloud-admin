@@ -38,6 +38,8 @@ user_logged_in_sqs_client = boto3.client('sqs',
 
 queue_url = util.config_reader.get_queue_url()
 start_uspto_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 start"
+start_mag_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 start"
+start_wos_command = "--cassandravm i-041dce87232dde587 10.0.1.34 --cassandravm i-0695e499d3ee4777a 10.0.1.61 --cassandravm  i-02c3c26faea6ca53b 10.0.1.46 --elasticsearchvm i-0221d597c482eecee 10.0.1.121 start"
 python_venv_path = util.config_reader.get_python_venv_path()
 
 
@@ -64,13 +66,22 @@ def poll_queue():
                 logger.info("Received message id " + message['MessageId'])
                 query_json = json.loads(message_body)
                 logger.info(query_json)
+                dataset = query_json['dataset']
+                if dataset == 'US Patent and Trademark Office patent':
+                    command = start_uspto_command
+                elif dataset == 'Microsoft Academic Graph':
+                    command =  start_mag_command
+                else:
+                    command = start_wos_command
                 # check whether cluster already running
                 # start the cluster
                 try:
-                    p = Popen([python_venv_path, script_path] + start_uspto_command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                    p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
                     print(rc)
+                    print(err)
+                    print(output)
                 except (Exception) as error:
                     logger.error(error)
                 finally:
