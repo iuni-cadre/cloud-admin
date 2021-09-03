@@ -79,14 +79,15 @@ def stop_uspto_cluster():
                     if listner_last_update_time_difference > 10 and time_difference > 10:
                         # can shut down the cluster
                         print("System is idle")
-                        if dataset == "USPTO":
-                            command_list = [stop_uspto_command]
-                        elif dataset == "WOS":
-                            command_list = [stop_wos_command]
-                        elif dataset == "MAG":
-                            command_list = [stop_mag_command]
-                        else:
-                            command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
+                        command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
+                        # if dataset == "USPTO":
+                        #     command_list = [stop_uspto_command]
+                        # elif dataset == "WOS":
+                        #     command_list = [stop_wos_command]
+                        # elif dataset == "MAG":
+                        #     command_list = [stop_mag_command]
+                        # else:
+                        #     command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
 
                         #spawn script
                         # subprocess.call(["python3", script_path,
