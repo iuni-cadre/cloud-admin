@@ -304,11 +304,11 @@ def parse_args():
       help='number of status updates if a VM failed to start/stop after <vm-start-wait-time>')
    parser.add_option(
       '--vm-start-wait-time', dest='vmStartWaitTime', type='int',
-      default=30, action='store',
+      default=90, action='store',
       help='time to wait (in seconds) for a VM to start')
    parser.add_option(
       '--vm-status-wait-time', dest='vmStatusWaitTime', type='int',
-      default=10, action='store',
+      default=30, action='store',
       help='wait time (in seconds) between VM status updates if a VM and its services failed to fully start/stop after <vm-start-wait-time>')
    parser.add_option(
       '--vm-num-status-retries', dest='vmNumStatusRetries', type='int',
@@ -351,6 +351,7 @@ def main():
    code = 2
 
    try:
+      print('janus_cluster processing action ' + '\'' + action + '\'')
       process_action(action, options)
       code = 0
    except Exception as e:
