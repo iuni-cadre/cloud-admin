@@ -6,6 +6,7 @@ import time
 
 from subprocess import Popen, PIPE
 import boto3
+from NamedAtomicLock import NamedAtomicLock
 
 abspath = os.path.abspath(os.path.dirname(__file__))
 aws_dir = os.path.dirname(abspath)
@@ -19,6 +20,15 @@ sys.path.append(cloud_admin_dir)
 POLL_QUEUE_SLEEP_TIME = 15
 
 import util.config_reader
+
+lockFile = util.config_reader.get_cluster_lock_file_name()
+
+# Initialize the atomic lock.  Break existing locks
+# upon initialization.  This script should be started
+# first so it can initialize the lock before the
+# shutdown script initializes.
+clusterLock = NamedAtomicLock(lockFile)
+clusterLock.release(forceRelease=True)
 
 log_conf = conf + '/start-cluster-conf.json'
 with open(log_conf, 'r') as logging_configuration_file:
@@ -62,6 +72,8 @@ def poll_queue():
             WaitTimeSeconds=0
         )
 
+        
+
         if 'Messages' in response:
             print(response)
             for message in response['Messages']:
@@ -80,6 +92,7 @@ def poll_queue():
                 # check whether cluster already running
                 # start the cluster
                 try:
+                    clusterLock.acquire()
                     logger.info('Launching start script with: ' + command)
                     logger.info('venv path: ' + python_venv_path)
                     logger.info('script path: ' + script_path)
@@ -87,11 +100,12 @@ def poll_queue():
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
                     logger.info('return code: ' + rc)
-                    logger.info(err)
-                    logger.info(output)
+                    logger.info('err        : ' + err)
+                    logger.info('output     : ' + output)
                 except (Exception) as error:
                     logger.error(error)
                 finally:
+                    clusterLock.release()
                     # Delete received message from queue
                     user_logged_in_sqs_client.delete_message(
                         QueueUrl=queue_url,
@@ -102,5 +116,5 @@ def poll_queue():
         time.sleep(POLL_QUEUE_SLEEP_TIME)
 
 if __name__ == '__main__':
-    print("aaaaaaaaaaaaaaaa")
+    print("Starting poll_queue")
     poll_queue()

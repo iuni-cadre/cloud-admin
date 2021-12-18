@@ -2,11 +2,13 @@ import json
 import logging.config
 import os
 import sys
+import time
 
 import psycopg2 as psycopg2
 from subprocess import Popen, PIPE
 from datetime import datetime, timedelta
 import time
+from NamedAtomicLock import NamedAtomicLock
 
 abspath = os.path.abspath(os.path.dirname(__file__))
 aws_dir = os.path.dirname(abspath)
@@ -17,9 +19,18 @@ janus = cloud_admin_dir + '/aws/ec2/janus_cluster'
 script_path = janus + '/janus_cluster.py'
 print(cloud_admin_dir)
 sys.path.append(cloud_admin_dir)
+INIT_SLEEP_TIME = 10
 
 import util.config_reader
 from util.db_util import cadre_meta_connection_pool
+
+lockFile = util.config_reader.get_cluster_lock_file_name()
+
+# Initialize the atomic lock.  Break existing locks
+# upon initialization.  This script should be started
+# first so it can initialize the lock before the
+# shutdown script initializes.
+clusterLock = NamedAtomicLock(lockFile)
 
 log_conf = conf + '/logging-idle-checker-conf.json'
 with open(log_conf, 'r') as logging_configuration_file:
@@ -48,6 +59,7 @@ def stop_uspto_cluster():
     meta_connection = cadre_meta_connection_pool.getconn()
     meta_db_cursor = meta_connection.cursor()
     try:
+        clusterLock.acquire()
         meta_db_cursor.execute(last_logged_time_statement)
         if meta_db_cursor.rowcount > 0:
             token_last_update_info = meta_db_cursor.fetchone()
@@ -107,13 +119,14 @@ def stop_uspto_cluster():
                             p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                             output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                             rc = p.returncode
-                            print(rc)
-                            print(output)
-                            print(err)
+                            logger.info('return code: ' + rc)
+                            logger.info('err        : ' + err)
+                            logger.info('output     : ' + output)
     except (Exception, psycopg2.Error) as error:
         print(error)
         logger.error('Error while connecting to PostgreSQL. Error is ' + str(error))
     finally:
+        clusterLock.release()
         # Closing database connection.
         meta_db_cursor.close()
         # Use this method to release the connection object and send back ti connection pool
@@ -122,6 +135,7 @@ def stop_uspto_cluster():
 
 
 if __name__ == '__main__':
+    time.sleep(INIT_SLEEP_TIME)
     stop_uspto_cluster()
 
 
