@@ -59,38 +59,39 @@ def stop_uspto_cluster():
     meta_connection = cadre_meta_connection_pool.getconn()
     meta_db_cursor = meta_connection.cursor()
     try:
+        logger.info('acquiring cluster lock')
         clusterLock.acquire()
+        logger.info('acquired cluster lock')
         meta_db_cursor.execute(last_logged_time_statement)
         if meta_db_cursor.rowcount > 0:
             token_last_update_info = meta_db_cursor.fetchone()
             last_active_user_id = token_last_update_info[0]
             last_active_user_time = token_last_update_info[1]
-            print(last_active_user_time)
-            print("88888888888888")
-            print(type(last_active_user_time))
+            logger.info(last_active_user_time)
+            logger.info(type(last_active_user_time))
             d2 = datetime.now()
             print(d2)
             time_difference = time.mktime(d2.timetuple()) - time.mktime(last_active_user_time.timetuple())
             print(d2)
-            print(time_difference)
+            logger.info(time_difference)
 
             meta_db_cursor.execute(check_listener_running_statement)
             print(meta_db_cursor.rowcount)
             if meta_db_cursor.rowcount == 0:
-                print("no running listeners")
+                logger.info("no running listeners")
                 # there is no running jobs
                 check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status  ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
                 meta_db_cursor.execute(check_listener_idle_statement)
                 if meta_db_cursor.rowcount > 0:
-                    print("check for last updated time of listener")
+                    logger.info("check for last updated time of listener")
                     idle_listener_info = meta_db_cursor.fetchone()
                     listener_last_updated_time = idle_listener_info[2]
                     dataset = idle_listener_info[0]
                     listner_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
-                    print(listner_last_update_time_difference / 60.0)
+                    logger.info(listner_last_update_time_difference / 60.0)
                     if listner_last_update_time_difference > 10 and time_difference > 10:
                         # can shut down the cluster
-                        print("System is idle")
+                        logger.info("System is idle")
                         command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
                         # if dataset == "USPTO":
                         #     command_list = [stop_uspto_command]
@@ -116,12 +117,13 @@ def stop_uspto_cluster():
                         #                  "stop"])
 
                         for command in command_list:
+                            logger.info('Shutting down with -- ' + command)
                             p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                             output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                             rc = p.returncode
-                            logger.info('return code: ' + rc)
-                            logger.info('err        : ' + err)
-                            logger.info('output     : ' + output)
+                            logger.info('return code: ' + str(rc))
+                            logger.info('err        : ' + str(err))
+                            logger.info('output     : ' + str(output))
     except (Exception, psycopg2.Error) as error:
         print(error)
         logger.error('Error while connecting to PostgreSQL. Error is ' + str(error))

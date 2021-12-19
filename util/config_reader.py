@@ -132,13 +132,14 @@ def get_python_venv_path():
     except Exception as e:
         traceback.print_tb(e.__traceback__)
         logger.error('Unable to find cadre.config file. Make sure you have cadre.config inside conf directory !')
-        raise Exception('Unable to find cadre.config file!')
+        raise Exception('Unable to find cadre.config file !')
 
 def get_cluster_lock_file_name():
     try:
         config = get_cadre_config()
-        cluster_lock_file_name = config(['GENERAL']['cluster-lock-file-name']
+        cluster_lock_file_name = config['GENERAL']['cluster-lock-file-name']
         return cluster_lock_file_name
     except Exception as e:
+        traceback.print_tb(e.__traceback__)
         logger.error('Unable to find cadre.config file. Make sure you have cadre.config inside conf directory !')
-        raise Exception('Unable to find cadre.config file!')
+        raise Exception('Unable to find cadre.config file !')
