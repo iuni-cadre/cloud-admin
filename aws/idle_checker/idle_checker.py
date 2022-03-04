@@ -26,10 +26,7 @@ from util.db_util import cadre_meta_connection_pool
 
 lockFile = util.config_reader.get_cluster_lock_file_name()
 
-# Initialize the atomic lock.  Break existing locks
-# upon initialization.  This script should be started
-# first so it can initialize the lock before the
-# shutdown script initializes.
+# Initialize the atomic lock.
 clusterLock = NamedAtomicLock(lockFile)
 
 log_conf = conf + '/logging-idle-checker-conf.json'
@@ -54,7 +51,8 @@ python_venv_path = util.config_reader.get_python_venv_path()
 def stop_uspto_cluster():
     last_logged_time_statement = "SELECT user_id, last_update FROM user_token ORDER BY last_update DESC NULLS LAST LIMIT 1"
     # replace with listener_status table once it is ready
-    check_listener_running_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE status='RUNNING'"
+    check_listener_running_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE status='RUNNING' AND last_cluster='%s'"
+    cluster_list=['WOS', 'MAG', 'USPTO']
 
     meta_connection = cadre_meta_connection_pool.getconn()
     meta_db_cursor = meta_connection.cursor()
@@ -75,55 +73,63 @@ def stop_uspto_cluster():
             print(d2)
             logger.info(time_difference)
 
-            meta_db_cursor.execute(check_listener_running_statement)
-            print(meta_db_cursor.rowcount)
-            if meta_db_cursor.rowcount == 0:
-                logger.info("no running listeners")
-                # there is no running jobs
-                check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status  ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
-                meta_db_cursor.execute(check_listener_idle_statement)
-                if meta_db_cursor.rowcount > 0:
-                    logger.info("check for last updated time of listener")
-                    idle_listener_info = meta_db_cursor.fetchone()
-                    listener_last_updated_time = idle_listener_info[2]
-                    dataset = idle_listener_info[0]
-                    listner_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
-                    logger.info(listner_last_update_time_difference / 60.0)
-                    if listner_last_update_time_difference > 10 and time_difference > 10:
-                        # can shut down the cluster
-                        logger.info("System is idle")
-                        command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
-                        # if dataset == "USPTO":
-                        #     command_list = [stop_uspto_command]
-                        # elif dataset == "WOS":
-                        #     command_list = [stop_wos_command]
-                        # elif dataset == "MAG":
-                        #     command_list = [stop_mag_command]
-                        # else:
-                        #     command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
+            for cluster in cluster_list:
+                logger.info('Checking cluster status for ' + cluster)
+                if cluster == "USPTO":
+                   shutdown_cmd = stop_uspto_command
+                elif cluster == "WOS":
+                   shutdown_cmd = stop_wos_command
+                elif cluster == "MAG":
+                   shutdown_cmd = stop_mag_command
+                else:
+                   raise Exception("Unknown dataset '%s' detected" % cluster)
 
-                        #spawn script
-                        # subprocess.call(["python3", script_path,
-                        #                  "--cassandravm",
-                        #                  "i-041dce87232dde587 10.0.1.34",
-                        #                  "--cassandravm",
-                        #                  "i-0695e499d3ee4777a 10.0.1.61",
-                        #                  "--cassandravm",
-                        #                  "i-02c3c26faea6ca53b 10.0.1.46",
-                        #                  "--elasticsearchvm",
-                        #                  "i-0221d597c482eecee 10.0.1.121",
-                        #                  "--janusvm",
-                        #                  "i-0e6e57cfc9f606275 10.0.1.165",
-                        #                  "stop"])
+                meta_db_cursor.execute(check_listener_running_statement % cluster)
+                logger.info('Row count for running ' + cluster + ' listeners: ' + str(meta_db_cursor.rowcount))
+                if meta_db_cursor.rowcount == 0:
+                    logger.info('no running listeners for ' + cluster)
+                    # there is no running jobs
+                    check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE last_cluster='%s' ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
+                    meta_db_cursor.execute(check_listener_idle_statement % cluster)
+                    if meta_db_cursor.rowcount > 0:
+                        logger.info("check for last updated time of listener")
+                        idle_listener_info = meta_db_cursor.fetchone()
+                        listener_last_updated_time = idle_listener_info[2]
+                        listner_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
+                        logger.info(listner_last_update_time_difference / 60.0)
+                        if listner_last_update_time_difference > 10 and time_difference > 10:
+                            # can shut down the cluster
+                            logger.info("System is idle")
+                            #command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
+                            #spawn script
+                            # subprocess.call(["python3", script_path,
+                            #                  "--cassandravm",
+                            #                  "i-041dce87232dde587 10.0.1.34",
+                            #                  "--cassandravm",
+                            #                  "i-0695e499d3ee4777a 10.0.1.61",
+                            #                  "--cassandravm",
+                            #                  "i-02c3c26faea6ca53b 10.0.1.46",
+                            #                  "--elasticsearchvm",
+                            #                  "i-0221d597c482eecee 10.0.1.121",
+                            #                  "--janusvm",
+                            #                  "i-0e6e57cfc9f606275 10.0.1.165",
+                            #                  "stop"])
 
-                        for command in command_list:
-                            logger.info('Shutting down with -- ' + command)
-                            p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                            logger.info('Shutting down cluster ' + cluster + ' with -- ' + shutdown_cmd)
+                            p = Popen([python_venv_path, script_path] + shutdown_cmd.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                             output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                             rc = p.returncode
                             logger.info('return code: ' + str(rc))
                             logger.info('err        : ' + str(err))
                             logger.info('output     : ' + str(output))
+                    else:
+                        logger.info('Shutting down cluster ' + cluster + ' with no last_cluster status using -- ' + shutdown_cmd)
+                        p = Popen([python_venv_path, script_path] + shutdown_cmd.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                        output, err = p.communicate(b"input data that is passed to subprocess' stdin")
+                        rc = p.returncode
+                        logger.info('return code: ' + str(rc))
+                        logger.info('err        : ' + str(err))
+                        logger.info('output     : ' + str(output))
     except (Exception, psycopg2.Error) as error:
         print(error)
         logger.error('Error while connecting to PostgreSQL. Error is ' + str(error))
