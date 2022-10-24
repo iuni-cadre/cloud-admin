@@ -68,9 +68,7 @@ def stop_uspto_cluster():
             logger.info(last_active_user_time)
             logger.info(type(last_active_user_time))
             d2 = datetime.now()
-            print(d2)
             time_difference = time.mktime(d2.timetuple()) - time.mktime(last_active_user_time.timetuple())
-            print(d2)
             logger.info(time_difference)
 
             for cluster in cluster_list:
@@ -89,15 +87,16 @@ def stop_uspto_cluster():
                 if meta_db_cursor.rowcount == 0:
                     logger.info('no running listeners for ' + cluster)
                     # there is no running jobs
-                    check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE last_cluster='%s' ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
+                    check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE last_cluster='%s' AND status <> 'STOPPED' ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
                     meta_db_cursor.execute(check_listener_idle_statement % cluster)
                     if meta_db_cursor.rowcount > 0:
                         logger.info("check for last updated time of listener")
                         idle_listener_info = meta_db_cursor.fetchone()
                         listener_last_updated_time = idle_listener_info[2]
-                        listner_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
-                        logger.info(listner_last_update_time_difference / 60.0)
-                        if listner_last_update_time_difference > 10 and time_difference > 10:
+                        listener_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
+                        logger.info(listener_last_update_time_difference)
+                        logger.info(listener_last_update_time_difference / 60.0)
+                        if listener_last_update_time_difference/60.0 > 10 and time_difference/60.0 > 10:
                             # can shut down the cluster
                             logger.info("System is idle")
                             #command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]

@@ -99,7 +99,7 @@ def poll_queue():
                     p = Popen([python_venv_path, script_path] + command.split(), stdin=PIPE, stdout=PIPE, stderr=PIPE)
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
-                    logger.info('return code: ' + rc)
+                    logger.info('return code: ' + str(rc))
                     logger.info('err        : ' + err)
                     logger.info('output     : ' + output)
                 except (Exception) as error:
