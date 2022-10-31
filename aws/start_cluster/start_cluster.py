@@ -100,7 +100,7 @@ def poll_queue():
                     output, err = p.communicate(b"input data that is passed to subprocess' stdin")
                     rc = p.returncode
                     logger.info('return code: ' + str(rc))
-                    logger.info('err        : ' + err)
+                    logger.info('err        : ' + str(err))
                     logger.info('output     : ' + output)
                 except (Exception) as error:
                     logger.error(error)
