@@ -101,7 +101,7 @@ def poll_queue():
                     rc = p.returncode
                     logger.info('return code: ' + str(rc))
                     logger.info('err        : ' + str(err))
-                    logger.info('output     : ' + output)
+                    logger.info('output     : ' + str(output))
                 except (Exception) as error:
                     logger.error(error)
                 finally:
