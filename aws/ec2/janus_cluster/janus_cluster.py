@@ -77,6 +77,16 @@ def running(state):
 # Start the VMs in vmList one at a time with a wait time of
 # vmStartWaitTime in between each startup.
 def start_sequential(vmList, tag, options, ec2):
+   if tag == 'Cassandra':
+      vmStartWaitTime = options.cassandraVMStartWaitTime
+   elif tag == 'ElasticSearch':
+      vmStartWaitTime = options.elasticSearchVMStartWaitTime
+   elif tag == 'Janus':
+      vmStartWaitTime = options.janusSearchVMStartWaitTime
+   else:
+      raise Exception('Invalid vmList tag value {}.  Must be one of [\'Cassandra\', \'ElasticSearch\', \'Janus\']'.format(tag))
+     
+      
    #print('start_sequential vmList')
    #print(vmList)
    for vm in vmList:
@@ -103,7 +113,7 @@ def start_sequential(vmList, tag, options, ec2):
 
             # Sleep for the estimated time needed for the VM to
             # reach the 'running' state.
-            time.sleep(options.vmStartWaitTime)
+            time.sleep(vmStartWaitTime)
             startState = get_start_state(response)
 
             if startState[0] in ('pending', 'running'):
@@ -148,6 +158,16 @@ def start_sequential(vmList, tag, options, ec2):
 
 # Start the VMs in vmList concurrently.
 def start_concurrent(vmList, tag, options, ec2): 
+
+   if tag == 'Cassandra':
+      vmStartWaitTime = options.cassandraVMStartWaitTime
+   elif tag == 'ElasticSearch':
+      vmStartWaitTime = options.elasticSearchVMStartWaitTime
+   elif tag == 'Janus':
+      vmStartWaitTime = options.janusSearchVMStartWaitTime
+   else:
+      raise Exception('Invalid vmList tag value {}.  Must be one of [\'Cassandra\', \'ElasticSearch\', \'Janus\']'.format(tag))
+
    vmList = build_identifier_list([], vmList)
    #print('start_concurrent vmList')
    #print(vmList)
@@ -164,7 +184,7 @@ def start_concurrent(vmList, tag, options, ec2):
 
          # Sleep for the estimated time needed for the VMs to
          # reach the 'running' state.
-         time.sleep(options.vmStartWaitTime)
+         time.sleep(vmStartWaitTime)
          startState = get_start_state(response)
 
          if pending_or_running(startState):
@@ -303,9 +323,17 @@ def parse_args():
       default=3, action='store',
       help='number of status updates if a VM failed to start/stop after <vm-start-wait-time>')
    parser.add_option(
-      '--vm-start-wait-time', dest='vmStartWaitTime', type='int',
-      default=90, action='store',
-      help='time to wait (in seconds) for a VM to start')
+      '--cassandra-vm-start-wait-time', dest='cassandraVMStartWaitTime', type='int',
+      default=30, action='store',
+      help='time to wait (in seconds) for a Cassandra VM to start')
+   parser.add_option(
+      '--elasticsearch-vm-start-wait-time', dest='elasticSearchVMStartWaitTime', type='int',
+      default=120, action='store',
+      help='time to wait (in seconds) for a ElasticSearch VM to start')
+   parser.add_option(
+      '--janus-vm-start-wait-time', dest='janusVMStartWaitTime', type='int',
+      default=30, action='store',
+      help='time to wait (in seconds) for a Janus VM to start')
    parser.add_option(
       '--vm-status-wait-time', dest='vmStatusWaitTime', type='int',
       default=30, action='store',

@@ -50,9 +50,9 @@ user_logged_in_sqs_client = boto3.client('sqs',
 
 queue_url = util.config_reader.get_queue_url()
 print(queue_url)
-start_uspto_command = "--cassandravm i-0a42fce90cd7eb05e 10.0.1.84 --cassandravm i-02b790105f46522bd 10.0.1.165 --cassandravm  i-0e59c526105c72e53 10.0.1.250 --elasticsearchvm i-0dc077c81a34a9ebe 10.0.1.80 --vm-start-wait-time 90 --vm-status-wait-time 30 start"
-start_mag_command = "--cassandravm i-05512a5f648a22c24 10.0.1.81 --cassandravm i-0a756cd826ec308cb 10.0.1.55 --cassandravm  i-0d900785b2a99cb4f 10.0.1.239 --elasticsearchvm i-0678bd7619427dc4a 10.0.1.94 --vm-start-wait-time 90 --vm-status-wait-time 30 start"
-start_wos_command = "--cassandravm i-03d7229f8d4456c6e 10.0.1.87 --cassandravm i-0c2b57be36bf0d0b8 10.0.1.201 --cassandravm  i-05b04736594741634 10.0.1.119 --elasticsearchvm i-06ed04e79ba9c55c1 10.0.1.88 --vm-start-wait-time 90 --vm-status-wait-time 30 start"
+start_uspto_command = "--cassandravm i-0a42fce90cd7eb05e 10.0.1.84 --cassandravm i-02b790105f46522bd 10.0.1.165 --cassandravm  i-0e59c526105c72e53 10.0.1.250 --elasticsearchvm i-0dc077c81a34a9ebe 10.0.1.80 start"
+start_mag_command = "--cassandravm i-05512a5f648a22c24 10.0.1.81 --cassandravm i-0a756cd826ec308cb 10.0.1.55 --cassandravm  i-0d900785b2a99cb4f 10.0.1.239 --elasticsearchvm i-0678bd7619427dc4a 10.0.1.94 start"
+start_wos_command = "--cassandravm i-03d7229f8d4456c6e 10.0.1.87 --cassandravm i-0c2b57be36bf0d0b8 10.0.1.201 --cassandravm  i-05b04736594741634 10.0.1.119 --elasticsearchvm i-06ed04e79ba9c55c1 10.0.1.88 start"
 python_venv_path = util.config_reader.get_python_venv_path()
 
 
