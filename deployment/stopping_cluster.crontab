@@ -2,4 +2,4 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MAILTO=cpelikan@iu.edu
 
-*/10 * * * * source /home/ubuntu/cloud-admin/venv/bin/activate && python /home/ubuntu/cloud-admin/aws/idle_checker/idle_checker.py > /dev/null
+*/10 * * * * cd /home/ubuntu/cloud-admin && source /home/ubuntu/cloud-admin/venv/bin/activate && python /home/ubuntu/cloud-admin/aws/idle_checker/idle_checker.py > /dev/null

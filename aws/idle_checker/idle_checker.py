@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import time
 from NamedAtomicLock import NamedAtomicLock
 
+# Find the directory where this utility is installed
+# and locate the configuration files
 abspath = os.path.abspath(os.path.dirname(__file__))
 aws_dir = os.path.dirname(abspath)
 cloud_admin_dir = os.path.dirname(aws_dir)
@@ -17,7 +19,6 @@ util = cloud_admin_dir + '/util'
 conf = cloud_admin_dir + '/conf'
 janus = cloud_admin_dir + '/aws/ec2/janus_cluster'
 script_path = janus + '/janus_cluster.py'
-print(cloud_admin_dir)
 sys.path.append(cloud_admin_dir)
 INIT_SLEEP_TIME = 10
 
@@ -65,11 +66,12 @@ def stop_uspto_cluster():
             token_last_update_info = meta_db_cursor.fetchone()
             last_active_user_id = token_last_update_info[0]
             last_active_user_time = token_last_update_info[1]
-            logger.info(last_active_user_time)
-            logger.info(type(last_active_user_time))
+            #logger.info(last_active_user_time)
+            #logger.info(type(last_active_user_time))
             d2 = datetime.now()
-            time_difference = time.mktime(d2.timetuple()) - time.mktime(last_active_user_time.timetuple())
-            logger.info(time_difference)
+            active_user_elapsed_time = time.mktime(d2.timetuple()) - time.mktime(last_active_user_time.timetuple())
+            active_user_elapsed_time /= 60.0
+            logger.info('Elapsed time since last interface user: ' + str(active_user_elapsed_time) + 'min')
 
             for cluster in cluster_list:
                 logger.info('Checking cluster status for ' + cluster)
@@ -83,22 +85,27 @@ def stop_uspto_cluster():
                    raise Exception("Unknown dataset '%s' detected" % cluster)
 
                 meta_db_cursor.execute(check_listener_running_statement % cluster)
-                logger.info('Row count for running ' + cluster + ' listeners: ' + str(meta_db_cursor.rowcount))
+                logger.info('Number of running ' + cluster + ' listeners: ' + str(meta_db_cursor.rowcount))
                 if meta_db_cursor.rowcount == 0:
-                    logger.info('no running listeners for ' + cluster)
+                    logger.info('There are no running listeners for ' + cluster)
                     # there is no running jobs
                     check_listener_idle_statement = "SELECT last_cluster,status,last_report_time FROM listener_status WHERE last_cluster='%s' AND status <> 'STOPPED' ORDER BY last_report_time DESC NULLS LAST LIMIT 1"
                     meta_db_cursor.execute(check_listener_idle_statement % cluster)
                     if meta_db_cursor.rowcount > 0:
-                        logger.info("check for last updated time of listener")
+                        logger.info("There is at least one running '" + cluster + "' listener.  Checking for last update time of listener.")
                         idle_listener_info = meta_db_cursor.fetchone()
-                        listener_last_updated_time = idle_listener_info[2]
-                        listener_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_updated_time.timetuple())
-                        logger.info(listener_last_update_time_difference)
-                        logger.info(listener_last_update_time_difference / 60.0)
-                        if listener_last_update_time_difference/60.0 > 10 and time_difference/60.0 > 10:
+                        listener_last_update_time = idle_listener_info[2]
+                        listener_last_update_time_difference = time.mktime(d2.timetuple()) - time.mktime(listener_last_update_time.timetuple())
+                        #logger.info(listener_last_update_time_difference)
+                        listener_last_update_time_difference /= 60.0
+                        logger.info("Time since a '" + cluster + "' listener was last updated: "
+                           + str(listener_last_update_time_difference) + 'min')
+                        if listener_last_update_time_difference > 10:
+                        # We no longer consider if a user is in the interface before shutting a cluster down.
+                        # If a cluster is idle, shut it down regardless of whether or not a user is in the interface.
+                        #if listener_last_update_time_difference > 10 and active_user_elapsed_time > 10:
                             # can shut down the cluster
-                            logger.info("System is idle")
+                            logger.info("Cluster '" + cluster + "'is idle")
                             #command_list = [stop_uspto_command, stop_mag_command, stop_wos_command]
                             #spawn script
                             # subprocess.call(["python3", script_path,
